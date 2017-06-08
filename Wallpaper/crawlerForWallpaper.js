@@ -1,50 +1,52 @@
 const cheerio = require('cheerio');
 const fs = require('fs');
-var htmlReq = require('superagent');
+const htmlReq = require('superagent');
 
 //抓取
 htmlReq.get('http://app.zol.com.cn/bizhi/youxi/').end(function(err, result) {
 
+  if (err) {
+
+    console.log("Error happend: " + err);
+
+    return;
+  }
+
   var $ = cheerio.load(result.text);
-  // console.log(result.text)
-  var c = $('body > div.content > section:nth-child(3) > ul')
-  // console.log(c);
-  var a = []
-  var count = 0
+
+  var imagRows = $('body > div.content > section:nth-child(3) > ul')
+
+  var resultArray = []
+
   //遍历首页
-  for (var i in c.children()) {
-    var lis = c.children()[i].children
+  for (var i in imagRows.children()) {
 
-    for (var j in lis) {
-      var item = lis[j]
-      if (!item) {
-        break
-      }
-      if (!item.attribs) {
-        break
-      }
-      if (!item.attribs.href) {
-        break
-      }
-      // console.log(''+i+ j);
-      // // console.log(item)
-      // console.log(item.attribs.href);
+    var list = imagRows.children()[i].children
 
+    for (var j in list) {
+
+      var imgItem = list[j]
+
+      if (!imgItem) {
+        break
+      }
+      if (!imgItem.attribs) {
+        break
+      }
+      if (!imgItem.attribs.href) {
+        break
+      }
 
       // var c = $('body > div.content > section:nth-child(3) > ul > li:nth-child(' + i + ') > a:nth-child(' + j + ')')
-
-      var subUrl = "http://app.zol.com.cn" + item.attribs.href
-
-      // console.log(count);
-      // if (!c.attr('href')) {
-      //   count += 30
-      //   // if (count > 700) {
-      //   console.log(JSON.stringify(a));
-      //   // }
-      //   break
-      // }
+      var subUrl = "http://app.zol.com.cn" + imgItem.attribs.href
 
       htmlReq.get(subUrl).end((err, subRes) => {
+
+        if (err) {
+          console.log("Error hanppend in subUrl request: " + console.err + "\n" + subUrl);
+          return
+        }
+
         var img = {}
         var sub = cheerio.load(subRes.text);
 
@@ -53,7 +55,7 @@ htmlReq.get('http://app.zol.com.cn/bizhi/youxi/').end(function(err, result) {
 
         var body = []
         img.body = body
-        a.push(img)
+        resultArray.push(img)
 
         for (var k = 1; k <= 10; k++) {
           for (var l = 1; l <= 3; l++) {
@@ -71,23 +73,27 @@ htmlReq.get('http://app.zol.com.cn/bizhi/youxi/').end(function(err, result) {
     }
   }
 
-  //1秒后写入文件
+  //3秒后写入文件
   setTimeout(() => {
 
-    for (var index in a) {
-      a[index].imgTotal = item.body.length
-    
+    var totalCount = 0
+    for (var index in resultArray) {
+
+      resultArray[index].imgTotal = resultArray[index].body.length
+      totalCount++;
     }
 
-    var result = {
-      "107":a
+    fs.writeFile(__dirname + "/result.json", JSON.stringify(resultArray), (error) => {
 
-    }
+      if (error) {
 
-    fs.writeFile(__dirname + "/result.json", JSON.stringify(result), (error) => {
+        console.error("writing error: " + error);
+      } else {
+        
+        console.log(totalCount + "records, All done.");
+      }
 
-      console.log('error'+error);
     })
 
-  }, 1000);
+  }, 3000);
 })
